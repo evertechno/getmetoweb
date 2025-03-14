@@ -5,7 +5,6 @@ import re
 import time
 import plotly.graph_objects as go
 import validators
-import json
 
 # Function to extract SEO metrics from a webpage
 def extract_seo_metrics(url):

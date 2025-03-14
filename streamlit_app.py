@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import re
 import time
 import plotly.graph_objects as go
+import validators
 
 # Function to extract SEO metrics from a webpage
 def extract_seo_metrics(url):
@@ -19,6 +20,17 @@ def extract_seo_metrics(url):
         h2_tags = soup.find_all('h2')
         internal_links = [link['href'] for link in soup.find_all('a', href=True) if url in link['href']]
         external_links = [link['href'] for link in soup.find_all('a', href=True) if url not in link['href']]
+        images = soup.find_all('img')
+        alt_texts = [img['alt'] if 'alt' in img.attrs else 'No Alt Text' for img in images]
+        canonical = soup.find('link', rel='canonical')
+        canonical_link = canonical['href'] if canonical else 'No Canonical Link Found'
+        favicon = soup.find('link', rel='icon')
+        favicon_link = favicon['href'] if favicon else 'No Favicon Found'
+        word_count = len(soup.get_text().split())
+        structured_data = soup.find_all('script', type='application/ld+json')
+        schema_org = [data.text for data in structured_data]
+        open_graph = soup.find_all('meta', property=re.compile(r'^og'))
+        twitter_cards = soup.find_all('meta', name=re.compile(r'^twitter'))
         
         return {
             'title_tag': title_tag,
@@ -27,6 +39,14 @@ def extract_seo_metrics(url):
             'h2_count': len(h2_tags),
             'internal_links': len(internal_links),
             'external_links': len(external_links),
+            'image_count': len(images),
+            'alt_texts': alt_texts,
+            'canonical_link': canonical_link,
+            'favicon_link': favicon_link,
+            'word_count': word_count,
+            'schema_org': schema_org,
+            'open_graph': open_graph,
+            'twitter_cards': twitter_cards
         }
     except Exception as e:
         return {'error': str(e)}
@@ -45,10 +65,10 @@ def plot_seo_performance(metrics):
     fig = go.Figure()
     
     fig.add_trace(go.Bar(
-        x=['H1 Tags', 'H2 Tags', 'Internal Links', 'External Links'],
-        y=[metrics['h1_count'], metrics['h2_count'], metrics['internal_links'], metrics['external_links']],
+        x=['H1 Tags', 'H2 Tags', 'Internal Links', 'External Links', 'Images'],
+        y=[metrics['h1_count'], metrics['h2_count'], metrics['internal_links'], metrics['external_links'], metrics['image_count']],
         name='SEO Metrics',
-        marker_color=['#FF6347', '#FF4500', '#2E8B57', '#1E90FF']
+        marker_color=['#FF6347', '#FF4500', '#2E8B57', '#1E90FF', '#FFA07A']
     ))
 
     fig.update_layout(
@@ -73,42 +93,64 @@ def seo_audit_tool():
     url = st.text_input("Enter URL:", "https://example.com")
     
     if st.button('Start SEO Audit'):
-        with st.spinner('Running SEO Audit...'):
-            time.sleep(2)  # Simulating processing delay
-            
-            # Get SEO metrics
-            metrics = extract_seo_metrics(url)
-            
-            if 'error' in metrics:
-                st.error(f"Error: {metrics['error']}")
-            else:
-                # Display SEO metrics
-                st.subheader("SEO Analysis Results:")
-                st.write(f"**Title Tag:** {metrics['title_tag']}")
-                st.write(f"**Meta Description:** {metrics['meta_description']}")
-                st.write(f"**Number of H1 Tags:** {metrics['h1_count']}")
-                st.write(f"**Number of H2 Tags:** {metrics['h2_count']}")
-                st.write(f"**Internal Links Count:** {metrics['internal_links']}")
-                st.write(f"**External Links Count:** {metrics['external_links']}")
+        if not validators.url(url):
+            st.error("Invalid URL. Please enter a valid URL.")
+        else:
+            with st.spinner('Running SEO Audit...'):
+                time.sleep(2)  # Simulating processing delay
                 
-                # SEO health status
-                seo_status = seo_health_status(metrics)
-                st.markdown(f"**SEO Health Status:** {seo_status}")
+                # Get SEO metrics
+                metrics = extract_seo_metrics(url)
                 
-                # Display performance graph
-                st.plotly_chart(plot_seo_performance(metrics))
+                if 'error' in metrics:
+                    st.error(f"Error: {metrics['error']}")
+                else:
+                    # Display SEO metrics
+                    st.subheader("SEO Analysis Results:")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**Title Tag:** {metrics['title_tag']}")
+                        st.write(f"**Meta Description:** {metrics['meta_description']}")
+                        st.write(f"**Number of H1 Tags:** {metrics['h1_count']}")
+                        st.write(f"**Number of H2 Tags:** {metrics['h2_count']}")
+                    with col2:
+                        st.write(f"**Internal Links Count:** {metrics['internal_links']}")
+                        st.write(f"**External Links Count:** {metrics['external_links']}")
+                        st.write(f"**Image Count:** {metrics['image_count']}")
+                        st.write(f"**Word Count:** {metrics['word_count']}")
+                    
+                    # SEO health status
+                    seo_status = seo_health_status(metrics)
+                    st.markdown(f"**SEO Health Status:** {seo_status}")
+                    
+                    # Display performance graph
+                    st.plotly_chart(plot_seo_performance(metrics))
 
-                # SEO Improvement Suggestions
-                st.subheader("SEO Recommendations:")
-                if len(metrics['title_tag']) < 10 or len(metrics['title_tag']) > 60:
-                    st.write("🔴 **Title Tag**: The title tag is too short or too long. Keep it between 10-60 characters.")
-                if len(metrics['meta_description']) < 50 or len(metrics['meta_description']) > 160:
-                    st.write("🔴 **Meta Description**: The meta description is too short or too long. Keep it between 50-160 characters.")
-                if metrics['h1_count'] == 0:
-                    st.write("🔴 **H1 Tag**: Make sure to include a single H1 tag on your page.")
-                if metrics['h2_count'] == 0:
-                    st.write("🔴 **H2 Tags**: Consider adding H2 tags for better structure.")
-                st.write("✅ **Internal Links**: Keep a good balance of internal and external links.")
+                    # SEO Improvement Suggestions
+                    st.subheader("SEO Recommendations:")
+                    if len(metrics['title_tag']) < 10 or len(metrics['title_tag']) > 60:
+                        st.write("🔴 **Title Tag**: The title tag is too short or too long. Keep it between 10-60 characters.")
+                    if len(metrics['meta_description']) < 50 or len(metrics['meta_description']) > 160:
+                        st.write("🔴 **Meta Description**: The meta description is too short or too long. Keep it between 50-160 characters.")
+                    if metrics['h1_count'] == 0:
+                        st.write("🔴 **H1 Tag**: Make sure to include a single H1 tag on your page.")
+                    if metrics['h2_count'] == 0:
+                        st.write("🔴 **H2 Tags**: Consider adding H2 tags for better structure.")
+                    if metrics['image_count'] == 0:
+                        st.write("🔴 **Images**: Consider adding images to enhance content.")
+                    if 'No Alt Text' in metrics['alt_texts']:
+                        st.write("🔴 **Image Alt Text**: Some images are missing alt text. Add descriptive alt text to all images.")
+                    if metrics['canonical_link'] == 'No Canonical Link Found':
+                        st.write("🔴 **Canonical Link**: Consider adding a canonical link to prevent duplicate content issues.")
+                    if metrics['favicon_link'] == 'No Favicon Found':
+                        st.write("🔴 **Favicon**: Add a favicon to your website for better branding.")
+                    if metrics['schema_org'] == []:
+                        st.write("🔴 **Structured Data**: Consider adding structured data (Schema.org) to help search engines understand your content.")
+                    if metrics['open_graph'] == []:
+                        st.write("🔴 **Open Graph**: Add Open Graph meta tags to improve your website's integration with social media.")
+                    if metrics['twitter_cards'] == []:
+                        st.write("🔴 **Twitter Cards**: Add Twitter Card meta tags for better sharing on Twitter.")
+                    st.write("✅ **Internal Links**: Keep a good balance of internal and external links.")
     
 # Run the SEO Audit Tool
 if __name__ == '__main__':

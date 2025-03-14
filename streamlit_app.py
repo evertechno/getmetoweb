@@ -21,7 +21,7 @@ def extract_seo_metrics(url):
         internal_links = [link['href'] for link in soup.find_all('a', href=True) if url in link['href']]
         external_links = [link['href'] for link in soup.find_all('a', href=True) if url not in link['href']]
         images = soup.find_all('img')
-        alt_texts = [img['alt'] if 'alt' in img.attrs else 'No Alt Text' for img in images]
+        alt_texts = [img.get('alt', 'No Alt Text') for img in images]
         canonical = soup.find('link', rel='canonical')
         canonical_link = canonical['href'] if canonical else 'No Canonical Link Found'
         favicon = soup.find('link', rel='icon')
@@ -30,7 +30,7 @@ def extract_seo_metrics(url):
         structured_data = soup.find_all('script', type='application/ld+json')
         schema_org = [data.text for data in structured_data]
         open_graph = soup.find_all('meta', property=re.compile(r'^og'))
-        twitter_cards = soup.find_all('meta', name=re.compile(r'^twitter'))
+        twitter_cards = soup.find_all('meta', attrs={'name': re.compile(r'^twitter')})
         
         return {
             'title_tag': title_tag,

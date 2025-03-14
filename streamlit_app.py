@@ -5,6 +5,7 @@ import re
 import time
 import plotly.graph_objects as go
 import validators
+import json
 
 # Function to extract SEO metrics from a webpage
 def extract_seo_metrics(url):
@@ -32,6 +33,19 @@ def extract_seo_metrics(url):
         open_graph = soup.find_all('meta', property=re.compile(r'^og'))
         twitter_cards = soup.find_all('meta', attrs={'name': re.compile(r'^twitter')})
         
+        robots_txt = requests.get(f"{url}/robots.txt").text if requests.get(f"{url}/robots.txt").status_code == 200 else "No robots.txt Found"
+        sitemap = requests.get(f"{url}/sitemap.xml").text if requests.get(f"{url}/sitemap.xml").status_code == 200 else "No sitemap.xml Found"
+        ssl_cert = requests.get(url).status_code == 200 and url.startswith('https')
+        
+        keyword_density = {}
+        text = soup.get_text().lower()
+        words = re.findall(r'\b\w+\b', text)
+        for word in words:
+            if word in keyword_density:
+                keyword_density[word] += 1
+            else:
+                keyword_density[word] = 1
+        
         return {
             'title_tag': title_tag,
             'meta_description': meta_description_content,
@@ -46,7 +60,11 @@ def extract_seo_metrics(url):
             'word_count': word_count,
             'schema_org': schema_org,
             'open_graph': open_graph,
-            'twitter_cards': twitter_cards
+            'twitter_cards': twitter_cards,
+            'robots_txt': robots_txt,
+            'sitemap': sitemap,
+            'ssl_cert': ssl_cert,
+            'keyword_density': keyword_density
         }
     except Exception as e:
         return {'error': str(e)}
@@ -58,6 +76,12 @@ def seo_health_status(metrics):
         status = 'Title Tag: Needs Improvement'
     elif len(metrics['meta_description']) < 50 or len(metrics['meta_description']) > 160:
         status = 'Meta Description: Needs Improvement'
+    elif not metrics['ssl_cert']:
+        status = 'SSL Certificate: Missing or Invalid'
+    elif metrics['robots_txt'] == "No robots.txt Found":
+        status = 'Robots.txt: Missing'
+    elif metrics['sitemap'] == "No sitemap.xml Found":
+        status = 'Sitemap: Missing'
     return status
 
 # Function to plot a dynamic SEO performance graph
@@ -113,11 +137,16 @@ def seo_audit_tool():
                         st.write(f"**Meta Description:** {metrics['meta_description']}")
                         st.write(f"**Number of H1 Tags:** {metrics['h1_count']}")
                         st.write(f"**Number of H2 Tags:** {metrics['h2_count']}")
-                    with col2:
                         st.write(f"**Internal Links Count:** {metrics['internal_links']}")
                         st.write(f"**External Links Count:** {metrics['external_links']}")
+                    with col2:
                         st.write(f"**Image Count:** {metrics['image_count']}")
                         st.write(f"**Word Count:** {metrics['word_count']}")
+                        st.write(f"**Canonical Link:** {metrics['canonical_link']}")
+                        st.write(f"**Favicon Link:** {metrics['favicon_link']}")
+                        st.write(f"**SSL Certificate Valid:** {'Yes' if metrics['ssl_cert'] else 'No'}")
+                        st.write(f"**Robots.txt:** {metrics['robots_txt']}")
+                        st.write(f"**Sitemap:** {metrics['sitemap']}")
                     
                     # SEO health status
                     seo_status = seo_health_status(metrics)
@@ -125,6 +154,11 @@ def seo_audit_tool():
                     
                     # Display performance graph
                     st.plotly_chart(plot_seo_performance(metrics))
+
+                    # Display Keyword Density
+                    st.subheader("Keyword Density Analysis:")
+                    sorted_keyword_density = dict(sorted(metrics['keyword_density'].items(), key=lambda item: item[1], reverse=True))
+                    st.json(sorted_keyword_density)
 
                     # SEO Improvement Suggestions
                     st.subheader("SEO Recommendations:")
@@ -150,6 +184,12 @@ def seo_audit_tool():
                         st.write("🔴 **Open Graph**: Add Open Graph meta tags to improve your website's integration with social media.")
                     if metrics['twitter_cards'] == []:
                         st.write("🔴 **Twitter Cards**: Add Twitter Card meta tags for better sharing on Twitter.")
+                    if not metrics['ssl_cert']:
+                        st.write("🔴 **SSL Certificate**: Your website does not have a valid SSL certificate. Consider adding one for better security and SEO.")
+                    if metrics['robots_txt'] == "No robots.txt Found":
+                        st.write("🔴 **Robots.txt**: Add a robots.txt file to your website to control and monitor the crawling and indexing of your website.")
+                    if metrics['sitemap'] == "No sitemap.xml Found":
+                        st.write("🔴 **Sitemap**: Add a sitemap.xml file to help search engines understand the structure of your website.")
                     st.write("✅ **Internal Links**: Keep a good balance of internal and external links.")
     
 # Run the SEO Audit Tool

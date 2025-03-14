@@ -380,7 +380,7 @@ if st.button("Audit"):
         1 if schema_markup == "Present" else 0,
         int(image_optimization.split("/")[0]),
         len(internal_link_structure),
-        header_response,
+        1 if header_response < 400 else 0,
         1 if structured_data == "Present" else 0,
         1 if amp != "Missing" else 0,
         1 if breadcrumbs == "Present" else 0,
